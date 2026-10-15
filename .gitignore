@@ -1,0 +1,8 @@
+# Python cache
+__pycache__/
+.pytest_cache/
+
+# Personal notes - not for the public repo
+PLAN.md
+STUDY_LOG.md
+practice.py

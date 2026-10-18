@@ -1,5 +1,5 @@
 import pytest
-from scoring import score_job
+from scoring import score_job, requires_german
 
 @pytest.mark.parametrize("keyword", [
     "Playwright",
@@ -30,9 +30,7 @@ def test_germany_country_is_not_penalized():
         "title": "Sales Manager",
         "description": "Location is in Germany",
     }
-    score, items = score_job(job)
-    assert score == 0
-    assert items == []
+    assert requires_german(job) is False
 
 @pytest.mark.parametrize("phrase", [
     "German language", 
@@ -48,9 +46,7 @@ def test_phrase_job(phrase):
         "title": "Sales Manager",
         "description": f"This position required {phrase}",
     }
-    score, items = score_job(job)
-    assert score == -3
-    assert items == ["language"]
+    assert requires_german(job) is True
 
 @pytest.mark.parametrize("title", [
     "QA",

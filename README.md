@@ -23,9 +23,11 @@ and covered by a 19-test pytest suite.
 |---|---|---|---|
 | Mentions visa sponsorship | description | +3 | `visa` |
 | Mentions Playwright, pytest, Python or Cypress | description | +2 | `skills` |
-| Requires German (e.g. *German language*, *fluent in German*, *Deutschkenntnisse*, *fließend Deutsch*) | description | −3 | `language` |
 | QA-type role (`qa`, `sdet`, `quality`, `test`) | title | +2 | `qa role` |
 
+- Postings that require German (e.g. *German language*, *fluent in German*,
+  *Deutschkenntnisse*, *fließend Deutsch*) are **excluded** from the list entirely by
+  `requires_german()`, rather than scored. See *Design change* below.
 - Matching is case-insensitive (both title and description are lower-cased first).
 - `score_job()` returns `(score, reasons)`, with reasons sorted alphabetically so the order
   is part of the spec rather than an accident of rule order.
@@ -34,8 +36,8 @@ and covered by a 19-test pytest suite.
 
 | File | Role |
 |---|---|
-| `scoring.py` | `score_job(job)` — the scoring rules. Pure function, no network access |
-| `check_API.py` | Fetches 250 postings from the API, scores them, prints the top 10 |
+| `scoring.py` | `score_job(job)` — the scoring rules; `requires_german(job)` — `True` if the posting requires German. Pure functions, no network access |
+| `check_API.py` | Fetches 250 postings from the API, skips those that require German, scores the rest, prints the top 10 |
 | `test_scoring.py` | pytest suite for `score_job` |
 
 ## Running it
@@ -54,8 +56,8 @@ python -m pytest -v        # run the tests (no network needed)
 |---|---|---|
 | Visa | 1 | +3 |
 | Skills | 4 | each keyword gives +2 (parametrized) |
-| German requirement | 7 | each phrase gives −3 (parametrized) |
-| "Germany" alone | 1 | the country name must **not** trigger the German penalty |
+| German requirement | 7 | `requires_german` returns `True` for each phrase (parametrized) |
+| "Germany" alone | 1 | `requires_german` returns `False` — the country name alone must **not** count as a German requirement |
 | QA role | 4 | each title keyword gives +2 (parametrized) |
 | Combination | 1 | visa + skills = 5, reasons `["skills", "visa"]` |
 | No match | 1 | 0 points, no reasons |
@@ -91,12 +93,25 @@ Measured against the same 250 postings, where about 14 actually required German:
 The one remaining miss (*"Very good German and English language skills"*) was accepted
 rather than chased with an over-specific rule.
 
+## Design change: excluding German-required postings
+
+In this tool, jobs that didn't match any rule scored 0 points. However, jobs that required
+German got −3 points. As a result, an unrelated job (0 points) could rank above a QA job that
+required German (+2 − 3 = −1).
+
+I fixed this with a new function, `requires_german`. It returns `True` if the description
+asks for German, and `check_API.py` skips those postings at the start of the loop.
+
+Separating what is scored (whether it's a QA role, whether the skills match) from everything
+else (whether you can apply at all) made the two easy to tell apart — so instead of something
+complicated, the check is a simple `True` / `False` done first.
+
+The tests were changed first (TDD): the German tests were pointed at `requires_german` and
+failed with `ImportError` (red) before the function existed, then passed once it was
+implemented (green).
+
 ## Known limitations
 
-- **One number mixes two different things.** The score adds *relevance* (QA role, skills)
-  and *eligibility* (visa, German requirement) together, so an unrelated posting with 0 points
-  can outrank a QA role that requires German (−1). A possible fix is to exclude
-  German-required postings instead of penalising them, or report the two separately.
 - `quality` also matches non-software roles (e.g. *Manufacturing Quality Engineer*).
 - The API data can contain duplicate postings, which are not removed yet.
 
